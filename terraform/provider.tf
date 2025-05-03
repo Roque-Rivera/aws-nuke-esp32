@@ -2,6 +2,11 @@ provider "aws" {
   region = var.aws_region
 }
 
+provider "aws" {
+  alias  = "us-east-1"
+  region = "us-east-1"
+}
+
 terraform {
   required_providers {
     aws = {
@@ -12,8 +17,8 @@ terraform {
   
   backend "s3" {
     # Fill these in or use -backend-config with terraform init
-    # bucket = "your-terraform-state-bucket"
-    # key    = "aws-nuke-button/terraform.tfstate"
-    # region = "us-east-1"
+    bucket = "aws-nuke-button"
+    key    = "aws-nuke-button/terraform.tfstate"
+    region = "eu-west-1"
   }
 }

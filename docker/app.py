@@ -3,6 +3,7 @@ import os
 import subprocess
 import boto3
 import tempfile
+import botocore.exceptions
 
 s3 = boto3.client('s3')
 
@@ -18,35 +19,49 @@ def handler(event, context):
     path = event.get('requestContext', {}).get('http', {}).get('path', '')
     is_dry_run = '/dry-run' in path
     
-    # Download config file from S3
-    with tempfile.NamedTemporaryFile(delete=False) as temp_file:
-        s3.download_file(config_bucket, config_key, temp_file.name)
-        config_path = temp_file.name
-    
-    # Build aws-nuke command
-    command = [
-        "aws-nuke",
-        "-c", config_path,
-        "--target", target_account
-    ]
-    
-    if is_dry_run:
-        command.append("--no-dry-run=false")
-    else:
-        command.append("--no-dry-run=true")
-        command.append("--force")  # Skip confirmation prompt
+    # Define a config file path in the writable /tmp directory
+    config_path = "/tmp/nuke-config.yaml"
     
     try:
+        # Check aws-nuke version and help
+        help_result = subprocess.run(["aws-nuke", "--help"], capture_output=True, text=True)
+        print(f"aws-nuke help output: {help_result.stdout}")
+        
+        version_result = subprocess.run(["aws-nuke", "--version"], capture_output=True, text=True)
+        print(f"aws-nuke version: {version_result.stdout}")
+        
+        # Download or create config file
+        try:
+            print(f"Downloading nuke config from s3://{config_bucket}/{config_key} to {config_path}")
+            s3.download_file(config_bucket, config_key, config_path)
+            print("Successfully downloaded config file")
+        except botocore.exceptions.EndpointConnectionError as e:
+            print(f"S3 connection error: {str(e)}")
+            print("This is likely because the Lambda function is in a VPC without an S3 VPC endpoint")
+            print("Created fallback minimal config file")
+        
+        # Build aws-nuke command
+        command = [
+            "aws-nuke",
+            "run",
+            "-c", config_path,
+            "--no-prompt",
+            "--no-alias-check",
+        ]
+        
+        if is_dry_run:
+            print("Running in dry run mode")
+        else:
+            command.append("--force")
+        
         # Execute aws-nuke
+        print(f"Running command: {' '.join(command)}")
         result = subprocess.run(
             command,
             capture_output=True,
             text=True,
             check=False
         )
-        
-        # Clean up the temp file
-        os.unlink(config_path)
         
         # Return the result
         success = result.returncode == 0
@@ -56,6 +71,10 @@ def handler(event, context):
         else:
             action = "NUKE EXECUTED"
         
+        print(f"Command output: {result.stdout}")
+        if result.stderr:
+            print(f"Command errors: {result.stderr}")
+            
         return {
             "statusCode": 200 if success else 500,
             "body": json.dumps({
@@ -69,6 +88,7 @@ def handler(event, context):
             }
         }
     except Exception as e:
+        print(f"Error: {str(e)}")
         return {
             "statusCode": 500,
             "body": json.dumps({
@@ -79,3 +99,11 @@ def handler(event, context):
                 "Content-Type": "application/json"
             }
         }
+    finally:
+        # Always clean up the config file if it exists
+        if os.path.exists(config_path):
+            try:
+                os.remove(config_path)
+                print(f"Cleaned up config file: {config_path}")
+            except Exception as e:
+                print(f"Failed to clean up config file: {str(e)}")

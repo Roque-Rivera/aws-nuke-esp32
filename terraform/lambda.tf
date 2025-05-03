@@ -15,7 +15,7 @@ resource "random_string" "suffix" {
 resource "aws_s3_object" "nuke_config_file" {
   bucket  = aws_s3_bucket.nuke_config.id
   key     = "nuke-config.yml"
-  content = var.aws_nuke_config
+  source = "${path.module}/nuke-config.yml"
 }
 
 resource "aws_lambda_function" "nuke_lambda" {

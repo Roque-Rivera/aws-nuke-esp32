@@ -1,1 +1,29 @@
-.aider*
+# Terraform
+**/.terraform/*
+*.tfstate
+*.tfstate.*
+*.tfvars
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+crash.log
+crash.*.log
+.terraformrc
+terraform.rc
+
+# IDE
+.idea/
+.vscode/
+
+# Environment files
+.env
+.envrc
+
+# ESP32 build files
+esp32/build/
+
+# Other
+.DS_Store
+terraform/nuke-config.yml
+terraform/.terraform.lock.hcl

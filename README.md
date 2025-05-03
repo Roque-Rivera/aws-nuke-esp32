@@ -101,6 +101,7 @@ Remember kids, the cloud is just someone else's computer - but with our shiny re
 
 ## Building the base infrastructure
 
+```shell
 terraform/
 ├── main.tf
 ├── variables.tf
@@ -109,3 +110,4 @@ terraform/
 ├── lambda.tf
 ├── api-gateway.tf
 └── iam.tf
+```
